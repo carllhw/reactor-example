@@ -17,6 +17,6 @@ public class ReactorExampleRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        FluxExample.combineLatestMethod();
+        FluxExample.publishMethod();
     }
 }

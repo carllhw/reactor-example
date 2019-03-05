@@ -8,6 +8,8 @@ import java.util.Random;
 
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * flux example
@@ -174,5 +176,60 @@ public class FluxExample {
                 Flux.interval(Duration.ofMillis(50), Duration.ofMillis(100)).take(5))
                 .toStream()
                 .forEach(log::info);
+    }
+
+    /**
+     * error consumer method
+     */
+    public static void errorConsumerMethod() {
+        Flux.just(1, 2)
+                .concatWith(Mono.error(new IllegalStateException()))
+                .subscribe(d -> log.info(d.toString()), d -> log.error(d.toString()));
+        Flux.just(1, 2)
+                .concatWith(Mono.error(new IllegalStateException()))
+                .onErrorReturn(0)
+                .subscribe(d -> log.info(d.toString()));
+        Flux.just(1, 2)
+                .concatWith(Mono.error(new IllegalStateException()))
+                .onErrorResume(e -> {
+                    if (e instanceof IllegalStateException) {
+                        return Mono.just(0);
+                    } else if (e instanceof IllegalArgumentException) {
+                        return Mono.just(-1);
+                    }
+                    return Mono.empty();
+                })
+                .subscribe(d -> log.info(d.toString()));
+//        Flux.just(1, 2)
+//                .concatWith(Mono.error(new IllegalStateException()))
+//                .retry(1)
+//                .subscribe(d -> log.info(d.toString()));
+    }
+
+    /**
+     * scheduler method
+     */
+    public static void schedulerMethod() {
+        Flux.create(sink -> {
+            sink.next(Thread.currentThread().getName());
+            sink.complete();
+        })
+                .publishOn(Schedulers.single())
+                .map(x -> String.format("[%s] %s", Thread.currentThread().getName(), x))
+                .publishOn(Schedulers.elastic())
+                .map(x -> String.format("[%s] %s", Thread.currentThread().getName(), x))
+                .subscribeOn(Schedulers.parallel())
+                .toStream()
+                .forEach(log::info);
+    }
+
+    public static void publishMethod() throws InterruptedException {
+        final Flux<Long> source =  Flux.interval(Duration.ofMillis(1000))
+                .take(10)
+                .publish()
+                .autoConnect();
+        source.subscribe();
+        Thread.sleep(5000);
+        source.toStream().forEach(data -> log.info(data.toString()));
     }
 }
